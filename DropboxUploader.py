@@ -1,6 +1,7 @@
 import threading
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
+from tkinter import filedialog
 import time
 import pandas as pd
 from time import sleep
@@ -16,8 +17,8 @@ class DropboxUploader(object):
             root - root window
         """
         self.root = root
-        self.root.title("Tracking Tool v1.3")
-        self.root.geometry("820x370")
+        self.root.title("Dropbox Uploader v1.0.0")
+        self.root.geometry("825x315")
 
         self.login_frame = tk.Frame(root)
         self.login_frame.pack(padx=10, pady=10)
@@ -56,27 +57,36 @@ class DropboxUploader(object):
         # Create a box to input access token
         self.access_token = tk.StringVar()
         self.token_label = tk.Label(self.main_frame, text="Access Token", font=("Helvetica", 11))
-        self.token_label.grid(row=0, column=0, padx=0, pady=2, sticky='nsew')
-        self.token_entry = tk.Entry(self.main_frame, textvariable=self.access_token, font=("Helvetica", 11))
-        self.token_entry.grid(row=0, column=1, padx=0, pady=2)
+        self.token_label.grid(row=0, column=0, padx=0, pady=2)
+        self.token_entry = tk.Entry(self.main_frame, textvariable=self.access_token, font=("Helvetica", 11), width=50)
+        self.token_entry.grid(row=0, column=1, columnspan=2, padx=0, pady=2, sticky='w')
 
         # Create a box to input folder name
         self.dropbox_folder = tk.StringVar()
         self.folder_label = tk.Label(self.main_frame, text="Dropbox Folder", font=("Helvetica", 11))
-        self.folder_label.grid(row=1, column=0, padx=0, pady=2, sticky='nsew')
+        self.folder_label.grid(row=1, column=0, padx=0, pady=2)
         self.folder_entry = tk.Entry(self.main_frame, textvariable=self.dropbox_folder, font=("Helvetica", 11))
-        self.folder_entry.grid(row=1, column=1, padx=0, pady=2)
+        self.folder_entry.grid(row=1, column=1, padx=0, pady=2, sticky='w')
 
         # Create a choice box to select the file type
-        self.import_button = tk.Button(root, text="Import Excel File", command=self.import_excel)
-        self.import_button.grid(row=2, column=0, padx=10, pady=10)
+        self.files_var = tk.StringVar()
+        self.files_var.set("Excel Files")  # Set the default value to "United States"
+        self.files_choices = ["Excel Files", "CSV Files", "Images Folder"]
+        self.files_choice_box = tk.OptionMenu(self.main_frame, self.files_var, *self.files_choices)
+        self.files_choice_box.config(width=22)  # Set the width of the choice box
+        self.files_choice_box['menu'].config(font=("Helvetica", 11))  # Set the font of the choices in the dropdown menu
+        self.files_choice_box.grid(row=1, column=2, padx=0, pady=2, sticky='nsew')
+
+        # Create a button to import images
+        self.import_button = tk.Button(self.main_frame, text="Import Images File", command=self.import_file, width=24)
+        self.import_button.grid(row=0, column=4, padx=0, pady=2, sticky='w')
 
         # Create a tree to display session information
-        self.tree = ttk.Treeview(root, columns=("Session ID", "Status", "Elapsed Time"))
+        self.tree = ttk.Treeview(self.main_frame, columns=("Session ID", "Status", "Elapsed Time"))
         self.tree.heading("#1", text="Session ID")
         self.tree.heading("#2", text="Status")
         self.tree.heading("#3", text="Elapsed Time")
-        self.tree.grid(row=3, column=0, padx=10, pady=10)
+        self.tree.grid(row=2, column=0, columnspan=6, padx=10, pady=10, sticky='w')
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)  # Bind event handler
 
         self.sessions = {}  # Store session information
@@ -84,25 +94,34 @@ class DropboxUploader(object):
         self.import_lock = threading.Lock()  # Lock for session synchronization
 
 
-    def import_excel(self) -> None:
+    def import_file(self) -> None:
         """
-        Import an Excel file from user's device
+        Import a file (either directory, CSV, or XLSX) from the user's device.
         """
-        selected_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx"), ("CSV files", "*.csv")])
+        # Create a dialog to select the file type
+        file_type = self.files_var.get()
         
-        if not selected_path:
-            selected_path = filedialog.askdirectory()
+        if file_type:
+            file_types = [("All files", "*.*")]  # Default filter
+            if file_type == "Images Folder":
+                selected_path = filedialog.askdirectory()
+            elif file_type == "CSV Files":
+                file_types = [("CSV files", "*.csv"), ("All files", "*.*")]
+                selected_path = filedialog.askopenfilename(filetypes=file_types)
+            elif file_type == "Excel Files":
+                file_types = [("Excel files", "*.xlsx"), ("All files", "*.*")]
+                selected_path = filedialog.askopenfilename(filetypes=file_types)
             
-        if selected_path:
-            session_id = self.session_id_counter
-            self.session_id_counter += 1
-            self.sessions[session_id] = {
-                "file_path": selected_path,  # Store the file or folder path for this session
-                "status_label": tk.Label(root, text="Waiting for previous session"),
-                "start_time": time.time()
-            }
-            self.tree.insert("", "end", iid=session_id, values=(session_id, "Waiting...", ""))
-            self.run_import(session_id)
+            if selected_path:
+                session_id = self.session_id_counter
+                self.session_id_counter += 1
+                self.sessions[session_id] = {
+                    "file_path": selected_path,  # Store the file or folder path for this session
+                    "status_label": tk.Label(root, text="Waiting for previous session"),
+                    "start_time": time.time()
+                }
+                self.tree.insert("", "end", iid=session_id, values=(session_id, "Waiting...", ""))
+                self.run_import(session_id)
 
 
     def run_import(self, session_id: int) -> None:
@@ -130,14 +149,18 @@ class DropboxUploader(object):
             FOLDER = self.dropbox_folder.get()
             try:
                 loader = UpAndDown(TOKEN, FOLDER)
-                output_workbook = loader.up_and_down(dir==self.sessions[session_id]["file_path"])
+                output_workbook = loader.up_and_down(dir=self.sessions[session_id]["file_path"])
                 self.sessions[session_id]["output_workbook"] = output_workbook
+                self.sessions[session_id]["finished"] = True
                 elapsed_time = int(time.time() - start_time)
                 self.sessions[session_id]["status_label"].config(text="Done")
                 self.tree.item(session_id, values=(session_id, "Done", f"{elapsed_time}s"))
             except Exception as e:
-                messagebox.showerror(f"error: {e}")
-
+                self.sessions[session_id]["finished"] = True
+                elapsed_time = int(time.time() - start_time)
+                self.sessions[session_id]["status_label"].config(text="Failed")
+                self.tree.item(session_id, values=(session_id, "Failed", f"{elapsed_time}s"))
+                messagebox.showerror(f"error: {str(e)}")
 
     def update_status_label(self, session_id: int, start_time: float) -> None:
         """
@@ -146,13 +169,13 @@ class DropboxUploader(object):
             session_id: int - ID of the session
             start_time: float - Start time of the session
         """
-        if "output_workbook" not in self.sessions[session_id]:
+        if "finished" not in self.sessions[session_id]:
             elapsed_time = int(time.time() - start_time)
             self.tree.item(session_id, values=(session_id, "Running...", f"{elapsed_time}s"))
             self.root.after(1000, lambda: self.update_status_label(session_id, start_time))
 
 
-    def on_tree_select(self) -> None:
+    def on_tree_select(self, event) -> None:
         """
         Event handler for selecting a session in the tree
         Args:

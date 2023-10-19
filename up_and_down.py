@@ -8,7 +8,7 @@ import dropbox.sharing
 
 class UpAndDown(object):
     """
-    UpAndDown is a class that handles uploading files to dropbox,
+    UpAndDown is a class that handles upload or download files to dropbox,
     Then it will get the dropbox's urls of those files and store to user local
     """
     def __init__(self, token: str=None, rootdir: str=None) -> None:
@@ -95,6 +95,7 @@ class UpAndDown(object):
             print("Unsupported file format. Use .xlsx or .csv.")
             return
 
+        print(f"Start downloading all images from {urls_contain_file_path}...")
         for index, row in df.iterrows():
             image_name = row.iloc[1]  # Use the index to access the first column
             image_url = row.iloc[3]  # Use the index to access the second column
@@ -107,23 +108,59 @@ class UpAndDown(object):
             try:
                 # Send a GET request to the URL to download the image
                 response = requests.get(image_url)
-
                 if response.status_code == 200:
-                    # Save the image to the folder
                     with open(image_path, 'wb') as f:
                         f.write(response.content)
-                    print(f"Downloaded: {image_filename}")
+                    print(f"    Downloaded: {image_filename}")
                 else:
-                    print(f"Failed to download: {image_url} (Status Code: {response.status_code})")
+                    print(f"    Failed to download: {image_url} (Status Code: {response.status_code})")
             except Exception as e:
                 print(f"Error while downloading {image_url}: {str(e)}")
         
         self.upload_all(folder_name)
+
+
+    def download_one(self, file_dir: str=None) -> None:
+        """
+        Download one file from dropbox.
+        ----------
+        Args:
+            file_dir: str -> The file directory of the file to download.
+        Returns:
+            None
+        """
+        file_name = os.path.basename(file_dir)
+        db_name = f'{self.rootdir}/{file_name}'
+        self.dbx.files_download_to_file(file_dir, db_name)
+        print(f'    Downloaded {file_name} from {self.rootdir}')
     
+
+    def download_all(self, local_folder: str=None) -> None:
+        """
+        Download all files in rootdir from dropbox to local_folder.
+        ----------
+        Args:
+            local_folder: str -> The local folder to download all files to.
+        Returns:
+            None
+        """
+        if not os.path.exists(local_folder):
+            os.makedirs(local_folder)
+
+        print(f'Start downloading all files from {self.rootdir}...')
+        for file in self.dbx.files_list_folder(self.rootdir).entries:
+            file_dir = os.path.join(local_folder, file.name)
+            self.download_one(file_dir)
+        
+        print(f'Finished download all files from {self.rootdir} folder.')
+
 
     def get_new_urls(self) -> pd.DataFrame:
         """
         Get all urls from dropbox_folder and save to an excel file.
+        The execl file will contain 2 columns:
+            -> Image_Name: The name of the image file.
+            -> Image_New_URL: The new url of the image file.
         ----------
         Args:
             None
@@ -190,15 +227,16 @@ class UpAndDown(object):
 
 if __name__ == "__main__":
     # unit test
-    TOKEN = 'sl.BoI55iLxjHMrbZDyCFdGs_mxEMzXA5Goj__vQ0QKjQj9Kp9d6Sx5RUZ2Fj0AU4P8-dUkFEgkPHQwBpA-SXGrafbNagY2M412dLZltmNUU5n3butNpuwhDfw2lZI3GcIi-wVBcomSSX5MG29i-_bN'
-    loader = UpAndDown(token=TOKEN, rootdir='_test_class_final_')
+    TOKEN = 'sl.BoPRD1evraITzyHlK0vlTrfZ9Nq3f7hc7tOfh_1Mx8ldx-cj0OMjSw3mDKaLj6ALiHkvSvPgaA1DLSwp2S8n4xREDmlG0h0yB4cfQLUCjMdBA4KaHoegAA7Jrh5jJqXB6IJaRRq2pKrdmR9zlUCB'
+    loader = UpAndDown(token=TOKEN, rootdir='__test_class_final_____')
 
-    # loader.upload_one(file_dir=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\small_test_file.txt")
-    # loader.upload_all(local_folder=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_")
-    # loader.upload_urls(urls_contain_file_path=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\halo1.csv")
-    # data_ = loader.get_new_urls()
-    # data_.to_excel(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test.xlsx", index=False)
-    # data_.to_csv(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test.csv", index=False)
+    loader.upload_one(file_dir=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\small_test_file.txt")
+    loader.upload_all(local_folder=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_")
+    loader.upload_urls(urls_contain_file_path=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\halo1.csv")
+    
+    data_ = loader.get_new_urls()
+    data_.to_excel(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test.xlsx", index=False)
+    data_.to_csv(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test.csv", index=False)
 
-    output = loader.up_and_down(dir=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\halo1")
-    output.to_excel(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test_final.xlsx", index=False)
+    output = loader.up_and_down(dir=r"C:/Users/binh.truong/Code/change_url/DropboxUploader/test_/halo1.csv")
+    output.to_excel(r"C:\Users\binh.truong\Code\change_url\DropboxUploader\test_\halo1.xlsx", index=False)
