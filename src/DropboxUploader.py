@@ -160,7 +160,8 @@ class DropboxUploader(object):
                 elapsed_time = int(time.time() - start_time)
                 self.sessions[session_id]["status_label"].config(text="Failed")
                 self.tree.item(session_id, values=(session_id, "Failed", f"{elapsed_time}s"))
-                messagebox.showerror(f"error: {str(e)}")
+                messagebox.showerror(message=f"error: {str(e)}")
+
 
     def update_status_label(self, session_id: int, start_time: float) -> None:
         """
