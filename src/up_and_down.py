@@ -1,10 +1,13 @@
+import os
+import re
+import sys
 import requests
 import pandas as pd
-import os
-import sys
 import dropbox
 import dropbox.files
 import dropbox.sharing
+from utils import read_dataframe, convert_dataframe
+
 
 class UpAndDown(object):
     """
@@ -96,13 +99,14 @@ class UpAndDown(object):
             return
 
         print(f"Start downloading all images from {urls_contain_file_path}...")
+        df = read_dataframe(df)
         for index, row in df.iterrows():
-            image_name = row.iloc[1]  # Use the index to access the first column
-            image_url = row.iloc[3]  # Use the index to access the second column
+            image_name = row.iloc[0]  # Use the index to access the first column
+            image_url = row.iloc[1]  # Use the index to access the second column
 
             # Construct the full file path for the image in the folder
             image_extension = os.path.splitext(image_url)[1]
-            image_filename = f"{image_name}{image_extension}"
+            image_filename = f"{image_name}_{str(index)}{image_extension}" # must make images's name unique in order to save
             image_path = os.path.join(folder_name, image_filename)
 
             try:
@@ -167,12 +171,14 @@ class UpAndDown(object):
         Returns:
             pd.DataFrame -> A DataFrame containing all names and urls.
         """
+        pattern = r'_[0-9]+$'
         dropbox_folder = self.rootdir
         print(f'Start getting all urls from {dropbox_folder}...')
         try:
             # List files in the specified folder
             files = self.dbx.files_list_folder(dropbox_folder).entries
-            assert len(files) > 0, f"Folder '{dropbox_folder}' is empty."
+            if len(files) == 0:
+                raise Exception('Folder is empty!!!')
 
             # Get download links for image files in the folder
             data = {'Image_Name': [], 'Image_New_URL': []}
@@ -182,10 +188,12 @@ class UpAndDown(object):
                     if file_extension.lower() in ('jpg', 'jpeg', 'png', 'gif'):
                         shared_link = self.dbx.sharing_create_shared_link(file.path_display)
                         image_url = shared_link.url
-                        data['Image_Name'].append(file_name)
-                        data['Image_New_URL'].append(image_url)
+                        print(f"    Pull url of image: {re.sub(pattern, '', file_name)}")
+                        data['Image_Name'].append(re.sub(pattern, '', file_name))
+                        data['Image_New_URL'].append(image_url.replace("&dl=0", "&raw=1"))
 
             output = pd.DataFrame(data)
+            output = convert_dataframe(output)
             print(f'Finished getting all urls from {dropbox_folder} folder.')
             return output
 
@@ -227,11 +235,11 @@ class UpAndDown(object):
 
 if __name__ == "__main__":
     # unit test
-    TOKEN = 'sl.BoPRD1evraITzyHlK0vlTrfZ9Nq3f7hc7tOfh_1Mx8ldx-cj0OMjSw3mDKaLj6ALiHkvSvPgaA1DLSwp2S8n4xREDmlG0h0yB4cfQLUCjMdBA4KaHoegAA7Jrh5jJqXB6IJaRRq2pKrdmR9zlUCB'
-    loader = UpAndDown(token=TOKEN, rootdir='__test_class_final_____')
+    TOKEN = 'sl.BoTia01mKFEBS26s3WYSQ-_5Z4EvFhl7t9jQEXcv4NRwCGVHK6c5eBbzXjoM67OT9CKfSqiWhXTiLvV38Xia4KRFCAxGzV8TZHYU6smJPCOW49IM6q8iYKzgtc_jSkRVWL1VO1q8pohUp7ob5uou'
+    loader = UpAndDown(token=TOKEN, rootdir='_ABC__')
 
     loader.upload_one(file_dir=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\small_test_file.txt")
-    loader.upload_all(local_folder=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_")
+    loader.upload_all(local_folder=r"C:\Users\binh.truong\Code\change_url\DropboxUploader\test_\Book1")
     loader.upload_urls(urls_contain_file_path=r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\halo1.csv")
     
     data_ = loader.get_new_urls()
@@ -239,5 +247,5 @@ if __name__ == "__main__":
     data_.to_csv(r"E:\Code\frelance\Change_URL\PythonDropboxUploader\test_\test.csv", index=False)
 
     # system test
-    output = loader.up_and_down(dir=r"C:/Users/binh.truong/Code/change_url/DropboxUploader/test_/halo1.csv")
-    output.to_excel(r"C:\Users\binh.truong\Code\change_url\DropboxUploader\test_\halo1.xlsx", index=False)
+    output = loader.up_and_down(dir=r"C:\Users\binh.truong\Code\change_url\DropboxUploader\test_\Book1.xlsx")
+    output.to_excel(r"test_format.xlsx", index=False) 
